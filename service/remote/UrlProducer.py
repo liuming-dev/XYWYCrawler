@@ -14,6 +14,16 @@ monkey.patch_all()
 
 
 class QUrlProducer(object):
+    '''
+    问题列表页的url存放在键名形如“-2016”的列表队列中
+    具体问题页的url存储在键名形如“2016”的列表队列中
+    抓取流程：
+    1、抓取全部的问题列表页的url入队对应的列表队列中
+    2、获取（出队）全部问题列表页url，遍历病操作每一个url，获取页面中具体问题的url并存入到对应的列表队列中
+        1）如果问题列表页的url处理失败（未能成功请求该页面、获取页面中具体问题的url以及存储到相应队列中），将其再次存储到相应的列表队列中，方便下次重新遍历
+        2）问题列表页url列表队列中不再存在可遍历的url时，遍历结束，成功获取全部目标问题的url
+    '''
+
     def __init__(self, startPage, endPage, rules):
         if 0 < startPage <= endPage:
             self.__startPage = startPage
@@ -23,9 +33,9 @@ class QUrlProducer(object):
 
     def getAllQUrl(self):
         self.__getDayUrl()
-        print('需要抓取数据的年份为：' + str(self.__years))
+        print('需要抓取数据所属年份为：' + str(self.__years))
         for year in self.__years:
-            pageUrlTask = Redis().getUrls('-' + year, -1)
+            pageUrlTask = Redis().getUrls('-' + year, -1, restore=False)
             while 1:
                 if len(pageUrlTask) > 0:
                     # 全部任务分为8个小任务
@@ -40,9 +50,10 @@ class QUrlProducer(object):
                         jobs.append(gevent.spawn(QUrlProducer.__getAllQUrl, allTask[i], year))
                     gevent.joinall(jobs)
 
-                    pageUrlTask = Redis().getUrls(year, -1)
+                    pageUrlTask = Redis().getUrls('-' + year, -1, restore=False)
                 else:
                     break
+            print(year + '的问题url获取工作已经结束...')
 
     def __getDayUrl(self):
         urlPrefix = 'http://club.xywy.com/keshi/'
@@ -66,7 +77,7 @@ class QUrlProducer(object):
     def __getAllQUrl(task, year):
         for url in task:
             try:
-                date = url[27:-7]
+                date = url[27:-7]  # 用户构造问题url
                 pageBase = int(url[38:-5])
                 html = NetworkIO().getHtmlByRequests(url)
                 if html is not None:
