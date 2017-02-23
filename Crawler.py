@@ -11,8 +11,8 @@ from datetime import datetime
 
 from lxml import etree
 
-import db_mgr
-from db_mgr import ConnPoolMgr
+import DBMgr
+from DBMgr import ConnPoolMgr
 
 task_urls = []
 q_queue = queue.Queue(100)
@@ -20,8 +20,8 @@ user_agents = [
     'Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 10.0; Trident/7.0; .NET4.0C; .NET4.0E)',
     'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.87 Safari/537.36',
     'Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.87 Safari/537.36',
-    'Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.79 Safari/537.36 '
-    'Edge/14.14393'
+    ('Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.79 Safari/537.36 '
+     'Edge/14.14393')
 ]
 
 
@@ -56,9 +56,8 @@ class QUrlGetter(threading.Thread):
 
 # --------------------------------获取每个问题的信息 线程类-----------------------------------#
 class QPageParser(threading.Thread):
-    def __init__(self, run_num):
+    def __init__(self):
         threading.Thread.__init__(self)
-        self.run_num = run_num
 
     def run(self):
         while 1:
@@ -109,10 +108,9 @@ class QPageParser(threading.Thread):
                                                           and tmp_datetime is not '' else '1990-01-01 00:00:00')
             q_datetime = datetime.strptime(q_publish_time, '%Y-%m-%d %H:%M:%S')
             q_info = (
-                url, q_title, q_body, q_datetime, u_name, u_sex, u_age, keshi1, keshi2, datetime.date(datetime.now()),
-                self.run_num)
+                url, q_title, q_body, q_datetime, u_name, u_sex, u_age, keshi1, keshi2, datetime.date(datetime.now()))
             # print(q_info)
-            db_mgr.insert_q_info(ConnPoolMgr().connection(), q_info)
+            DBMgr.insert_q_info(ConnPoolMgr().connection(), q_info)
         except:
             print('Exception: ' + traceback.format_exc())
 
@@ -130,18 +128,9 @@ class QPageParser(threading.Thread):
         q_reply2s_list = []
         index = 1
         for info in reply_infos:
-            q_reply1 = self.get_reply1(url, info, accepted, index)
-            if q_reply1 is not None:
-                q_reply1_list.append(q_reply1)
-                q_reply2s = self.get_reply2(q_reply1[1], info)
-                q_reply2s_list.append(q_reply2s) if q_reply2s is not None else 0
-                index += 1
-                db_mgr.insert_q_reply(ConnPoolMgr().connection(), q_reply1_list, q_reply2s_list)
-
-    def get_reply1(self, url, info, accepted, index):
-        try:
             # 提取回复问题医生的url
-            doctor_url = 'http://club.xywy.com/doc_card/' + info.get('id')[:-6]
+            doctor_url_block = info.find('.//a[@class="f14 fb Doc_bla"]')
+            doctor_url = doctor_url_block.get('href') if doctor_url_block is not None else ''
             # 提取回复的内容
             reply_body_part = info.find('.//div[@class="pt15 f14 graydeep  pl20 pr20"]')
             reply_body = ''
@@ -159,12 +148,15 @@ class QPageParser(threading.Thread):
             # 构建reply_id
             reply_id = url + '#' + str(tmp_accepted) + '_' + str(index)
             q_reply1 = (url, reply_id, doctor_url, reply_body, reply_datetime,
-                        pu_index, tmp_accepted, datetime.date(datetime.now()), self.run_num)
-            # print(q_reply1)
-            return q_reply1
-        except:
-            print('Exception: ' + traceback.format_exc())
-        return None
+                        pu_index, tmp_accepted, datetime.date(datetime.now()))
+            index += 1
+
+            if q_reply1 is not None:
+                q_reply1_list.append(q_reply1)
+                q_reply2s = self.get_reply2(q_reply1[1], info)
+                q_reply2s_list.append(q_reply2s) if q_reply2s is not None else 0
+
+        DBMgr.insert_q_reply(ConnPoolMgr().connection(), q_reply1_list, q_reply2s_list)
 
     def get_reply2(self, reply_id, info):
         try:
@@ -183,11 +175,12 @@ class QPageParser(threading.Thread):
                 who_reply = 1 if '回复' in tmp_text else 0
                 # 回复时间
                 reply2_datetime_str = reply2.find('.//span[@class="User_newbg User_time Doc_time"]').text
-                reply2_datetime = datetime.strptime(reply2_datetime_str.strip() if reply2_datetime_str is not None
-                                                                                   and reply2_datetime_str is not ''
-                                                    else '1990-01-01 00:00:00', '%Y-%m-%d %H:%M:%S')
+                reply2_datetime = (datetime.strptime(reply2_datetime_str.strip()
+                                                     if reply2_datetime_str is not None
+                                                        and reply2_datetime_str is not ''
+                                                     else '1990-01-01 00:00:00', '%Y-%m-%d %H:%M:%S'))
                 q_reply2 = (reply_id, reply2_id, tmp_text, who_reply, reply2_datetime,
-                            datetime.date(datetime.now()), self.run_num)
+                            datetime.date(datetime.now()))
                 reply_list.append(q_reply2)
                 index += 1
             # print(reply_list)
@@ -201,13 +194,14 @@ class QPageParser(threading.Thread):
 def get_html(url):
     try:
         req_headers = {
-            'User_Agent': user_agents[random.randint(0, 2)]
+            'User-Agent': user_agents[random.randint(0, 3)]
         }
         req_obj = urllib.request.Request(url, data=None, headers=req_headers)
         req = urllib.request.urlopen(req_obj)
         content = req.read().decode('gb2312', 'ignore')
         req.close()
     except socket.timeout:
+        print('Exception: ' + traceback.format_exc())
         write_to_log(url)
         return None
     except:
@@ -220,17 +214,17 @@ def get_html(url):
 
 # ------------------------------请求失败的url写入日志文件---------------------------------#
 def write_to_log(url):
-    file = open('./failure_url.log', 'a')
+    file = open('./failure_url.txt', 'a')
     file.write(url + '\n')
     file.close()
 
 
 def init():
-    file = open('./failure_url.log', 'w')
+    file = open('./failure_url.txt', 'w')
     file.write('')
     file.close()
     # 设置socket超时时间
-    socket.setdefaulttimeout(30)
+    socket.setdefaulttimeout(60)
 
 
 # -----------------------------------------------------------------------------#
@@ -250,7 +244,7 @@ def main():
     t0 = QUrlGetter()
     threads.append(t0)
     for ti in range(8):
-        t1 = QPageParser(1)
+        t1 = QPageParser()
         threads.append(t1)
     for thread_obj in threads:
         thread_obj.start()

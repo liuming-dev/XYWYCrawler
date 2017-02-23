@@ -42,11 +42,11 @@ class ConnPoolMgr(object):
 
 def insert_q_info(conn, q_info):
     try:
-        sql = "INSERT INTO q_info() VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s);"
+        sql = "INSERT INTO 2016_q_info() VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s);"
         conn.cursor().execute(sql, q_info)
     except:
-        import crawler
-        crawler.write_to_log(q_info[0])
+        import Crawler
+        Crawler.write_to_log(q_info[0])
         print('Exception: ' + traceback.format_exc())
 
 
@@ -54,12 +54,12 @@ def insert_q_reply(conn, reply1_list, reply2_list):
     try:
         # 一级回复
         for item in reply1_list:
-            sql = "INSERT INTO q_reply() VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s);"
+            sql = "INSERT INTO 2016_q_reply() VALUES(%s,%s,%s,%s,%s,%s,%s,%s);"
             conn.cursor().execute(sql, item)
         # 二级回复
         for items in reply2_list:
             for item in items:
-                sql = "INSERT INTO q_reply_2() VALUES(%s,%s,%s,%s,%s,%s,%s);"
+                sql = "INSERT INTO 2016_q_reply_2() VALUES(%s,%s,%s,%s,%s,%s);"
                 conn.cursor().execute(sql, item)
     except:
         print('Exception: ' + traceback.format_exc())
