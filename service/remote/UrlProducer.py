@@ -77,7 +77,7 @@ class QUrlProducer(object):
     def __getAllQUrl(task, year):
         for url in task:
             try:
-                date = url[27:-7]  # 用户构造问题url
+                date = url[27:37]  # 用户构造问题url
                 pageBase = int(url[38:-5])
                 html = NetworkIO().getHtmlByRequests(url)
                 if html is not None:

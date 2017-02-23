@@ -18,7 +18,7 @@ class UrlServer(object):
 
     def getUrls(self, username):
         if username == 'liuming':
-            return Redis().getUrls(self.tb, 200)
+            return Redis().getUrls(self.tb, 300)
         return None
 
     def __server_forever(self):

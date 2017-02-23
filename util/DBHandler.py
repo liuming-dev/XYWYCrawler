@@ -33,7 +33,7 @@ class Redis(object):
             return tmp
         return None
 
-    def getUrls(self, tb, count=500, restore=True):
+    def getUrls(self, tb, count=100, restore=True):
         tmp = []
         if count == -1:
             while 1:
