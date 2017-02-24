@@ -1,6 +1,22 @@
 #! /usr/bin/python
 
+import pymysql
 import redis
+from DBUtils.PersistentDB import PersistentDB
+
+# 设定数据库表的特定前缀和后缀
+TB_PRIFIX = '20170224___2016_'
+
+# 数据库的配置信息
+DB_HOST = '192.168.139.100'
+DB_PORT = 3306
+DB_NAME = 'xywy'
+DB_USERNAME = 'MyDataBase'
+DB_PASSWORD = 'wla123456'
+DB_CHARSET = 'utf8'
+TB_Q_INFO = TB_PRIFIX + 'q_info'
+TB_Q_REPLY = TB_PRIFIX + 'q_reply1'
+TB_Q_REPLY_2 = TB_PRIFIX + 'q_reply2'
 
 
 class Redis(object):
@@ -51,8 +67,54 @@ class Redis(object):
 
 
 class MySQL(object):
-    pass
+    def __init__(self):
+        self.__conn = ConnPoolMgr().connection()
+
+    def createTables(self):
+        with open('../../DDL.sql', 'r', encoding='utf-8') as file:
+            ddl = file.read()
+        ddl = ddl.replace('q_info', TB_Q_INFO).replace('q_reply1', TB_Q_REPLY).replace('q_reply2', TB_Q_REPLY_2)
+        print(ddl)
+        self.__conn.cursor().execute(ddl)
+
+    def saveQInfo(self, qInfo):
+        sql = "INSERT IGNORE INTO " + TB_PRIFIX + "q_info() VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s);"
+        self.__conn.cursor().execute(sql, qInfo)
+
+    def saveReply1Info(self, reply1Info):
+        sql = "INSERT IGNORE INTO " + TB_PRIFIX + "q_reply1() VALUES(%s,%s,%s,%s,%s,%s);"
+        self.__conn.cursor().execute(sql, reply1Info)
+
+    def saveReply2Info(self, reply2Info):
+        sql = "INSERT IGNORE INTO " + TB_PRIFIX + "q_reply2() VALUES(%s,%s,%s,%s);"
+        self.__conn.cursor().execute(sql, reply2Info)
+
+
+class ConnPoolMgr(object):
+    __pool = None
+
+    def __init__(self):
+        self.__conn = ConnPoolMgr.__get_conn()
+
+    @staticmethod
+    def __get_conn():
+        if ConnPoolMgr.__pool is None:
+            ConnPoolMgr.__pool = PersistentDB(
+                creator=pymysql,
+                setsession=['SET AUTOCOMMIT=1'],
+                host=DB_HOST,
+                port=DB_PORT,
+                database=DB_NAME,
+                user=DB_USERNAME,
+                passwd=DB_PASSWORD,
+                charset=DB_CHARSET,
+                use_unicode=True
+            )
+        return ConnPoolMgr.__pool.connection()
+
+    def connection(self):
+        return self.__conn
 
 
 if __name__ == '__main__':
-    print(Redis().getUrls('2004', 3))
+    pass

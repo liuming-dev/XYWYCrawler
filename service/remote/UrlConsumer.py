@@ -1,12 +1,20 @@
 #! /usr/bin/python
 
+import traceback
 from datetime import datetime
 
+import gevent
+from gevent import monkey
+
+from util.DBHandler import MySQL
+from util.IOHandler import FileIO
 from util.IOHandler import NetworkIO
 
+monkey.patch_all()
 
-def getQPageInfo():
-    # urlPool = UrlClient.getUrls()
+
+def getQPageInfo(year, username):
+    # urlPool = UrlClient.getUrls(username)
     urlPool = ['http://club.xywy.com/static/3/1234.htm',
                'http://club.xywy.com/static/20161207/123982687.htm',
                'http://club.xywy.com/static/20161207/123982709.htm',
@@ -16,19 +24,26 @@ def getQPageInfo():
     while 1:
         if len(urlPool) > 0:
             for url in urlPool:
-                html = NetworkIO().getHtmlByRequests(url)
-                if html is not None:
-                    # qInfoBlock = html.xpath('//div[@class="w980 clearfix bc f12 btn-a pr"]')
-                    # getQInfo(qInfoBlock[0])
-                    replyInfoBlock = html.xpath('//div[@class="Doc_con clearfix pr mt5 "]')
-                    getReplyInfo(replyInfoBlock[0])
-
-                    # urlPool = UrlClient.getUrls()
+                print(url)
+                try:
+                    html = NetworkIO().getHtmlByRequests(url)
+                    if html is not None:
+                        # 获取问题信息
+                        qInfoBlock = html.xpath('//div[@class="w980 clearfix bc f12 btn-a pr"]')
+                        getQInfo(url, qInfoBlock[0])
+                        # 获取关于问题的回复信息
+                        replyInfoBlock = html.xpath('//div[@class="Doc_con clearfix pr mt5 "]')
+                        getReplyInfo(url, replyInfoBlock[0])
+                except:
+                    # print('>>>Exception: ' + traceback.format_exc())
+                    doExpt(username, year + '-', url, '1')
+                    # urlPool = UrlClient.getUrls(username)
         else:
             break
+        break
 
 
-def getQInfo(elem):
+def getQInfo(url, elem):
     sectionBlock = elem.findall('./p[@class="pt10 pb10 lh180 znblue normal-a"]/a')
     # 一级科室
     keshi1 = getPureText(sectionBlock[2].text)
@@ -61,10 +76,10 @@ def getQInfo(elem):
     for tmpText in qBodyBlock.itertext():
         subText = getPureText(tmpText)
         qBody = qBody + subText if subText is not None else ''
-    print(qTitle, qBody, qDatetime, keshi1, keshi2, uName, uSex, uAge)
+    MySQL().saveQInfo((url, qTitle, qBody, qDatetime, keshi1, keshi2, uName, uSex, uAge))
 
 
-def getReplyInfo(elem):
+def getReplyInfo(url, elem):
     # 医生回复是否被采纳：0--未采纳；1--采纳
     accepted = elem.find('./div[@class="t9999 questnew_icon Quest_askh2 pa"]')
     accepted = 1 if getPureText(accepted.text) == '最佳答案' else 0
@@ -73,6 +88,7 @@ def getReplyInfo(elem):
         reply1Block = elem.findall('./div[@class="docall clearfix Bestbg"]')
     else:
         reply1Block = elem.findall('./div[@class="docall clearfix "]')
+    reply1Index = 1
     for block in reply1Block:
         # 回复医生的个人url
         doctorUrl = block.find('.//a[@class="f14 fb Doc_bla"]')
@@ -90,16 +106,38 @@ def getReplyInfo(elem):
         else:
             puIndex = block.find('.//div[@class="clearfix pb10  pl20 pr20 ballc pr"]//b[@class="gratenum"]')
         puIndex = getPureText(puIndex.text)
-        print(doctorUrl, reply1Body, reply1Datetime, puIndex, accepted)
+        reply1Id = url + '#' + str(reply1Index)
+        reply1Index += 1
+        MySQL().saveReply1Info((reply1Id, doctorUrl, reply1Body, reply1Datetime, puIndex, accepted))
 
         # 获取二级回复信息
         reply2InfoBlock = block.findall('.//div[@class="appdoc appxian ml20 mr20 mt15 pb10 clearfix f14"]'
-                                        '/div[@class="usezw pt10 clearfix"')
-        getReply2Info(reply2InfoBlock)
+                                        '/div[@class="usezw pt10 clearfix"]')
+        getReply2Info(reply1Id, reply2InfoBlock)
 
 
-def getReply2Info(elems):
-    pass
+def getReply2Info(reply1Id, elems):
+    reply2Index = 1
+    for reply2InfoBlock in elems:
+        # 二级回复中，是哪一方在回复:值为0表示提问者追问，值为1表示医生回复
+        whoReply = reply2InfoBlock.find('.//span[@class="fl dib fb Doc_bla"]')
+        whoReply = getPureText(whoReply.text if whoReply is not None else None)
+        if whoReply is not None:
+            if '追问' in whoReply:
+                whoReply = 0
+            else:
+                whoReply = 1
+        # 二级回复的内容
+        reply2Body = reply2InfoBlock.find('.//*[@class="fl w390"]')
+        reply2Body = getPureText(reply2Body.text)
+        # 二级回复的时间
+        reply2Datetime = reply2InfoBlock.find('./p[@class="tr col99 f12"]/span')
+        reply2Datetime = getPureText(reply2Datetime.text)
+        reply2Datetime = (datetime.strptime(reply2Datetime, '%Y-%m-%d %H:%M:%S') if reply2Datetime is not None
+                          else datetime.strptime('2000-01-01 00:00', '%Y-%m-%d %H:%M:%S'))
+        reply2Id = reply1Id + '_' + str(reply2Index)
+        reply2Index += 1
+        MySQL().saveReply2Info((reply2Id, reply2Body, whoReply, reply2Datetime))
 
 
 def getAllText(reply1BodyBlock):
@@ -118,5 +156,18 @@ def getPureText(rawText):
     return rawText
 
 
+def doExpt(username, tb, url, logIdentifier):
+    from service.remote import UrlClient
+    UrlClient.saveUrl(username, tb, url)
+    FileIO.handleExpt(traceback.format_exc(), url, logIdentifier)
+
+
 if __name__ == '__main__':
-    getQPageInfo()
+    year = input('请输入数据所归属的年份:')
+    tmpUsername = input('请输入用于匹配的用户名:')
+    MySQL().createTables()
+    print('数据库中相应数据表准备完成...')
+    jobs = []
+    for i in range(1):
+        jobs.append(gevent.spawn(getQPageInfo, year.strip(), tmpUsername.strip()))
+    gevent.joinall(jobs)
