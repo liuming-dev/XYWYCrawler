@@ -1,22 +1,18 @@
 #! /usr/bin/python
 
 import socket
+import threading
 import traceback
 from datetime import datetime
 
-import gevent
-from gevent import monkey
-
-from service.remote.UrlClient import UrlClient
 from util.DBHandler import MySQL
+from util.DBHandler import Redis
 from util.IOHandler import FileIO
 from util.IOHandler import NetworkIO
 
-monkey.patch_all()
 
-
-def getQPageInfo(year, username):
-    urlPool = UrlClient.getUrls(username)
+def getQPageInfo(year):
+    urlPool = Redis().getUrls(year, 200)
     # urlPool=['http://club.xywy.com/static/20170223/126671067.htm',
     #          'http://club.xywy.com/static/20170223/126671066.htm',
     #          'http://club.xywy.com/static/20170223/126671065.htm',
@@ -38,8 +34,8 @@ def getQPageInfo(year, username):
                             getReplyInfo(url, replyInfoBlock[0])
                 except:
                     # print('>>>Exception: ' + traceback.format_exc())
-                    doExpt(username, year + '-', url, '1')
-            urlPool = UrlClient.getUrls(username)
+                    doExpt(year + '-', url, '1')
+            urlPool = Redis().getUrls(year, 200)
         else:
             break
 
@@ -83,7 +79,8 @@ def getQInfo(url, elem):
 def getReplyInfo(url, elem):
     # 医生回复是否被采纳：0--未采纳；1--采纳
     accepted = elem.find('./div[@class="t9999 questnew_icon Quest_askh2 pa"]')
-    accepted = 1 if getPureText(accepted.text) == '最佳答案' else 0
+    accepted = getPureText(accepted.text) if accepted is not None else None
+    accepted = 1 if accepted == '最佳答案' else 0
     # reply1Block = None
     if accepted:
         reply1Block = elem.findall('./div[@class="docall clearfix Bestbg"]')
@@ -157,18 +154,21 @@ def getPureText(rawText):
     return rawText
 
 
-def doExpt(username, tb, url, logIdentifier):
-    UrlClient.saveUrl(username, tb, url)
+def doExpt(tb, url, logIdentifier):
+    Redis().saveUrl(tb, url)
     FileIO.handleExpt(traceback.format_exc(), url, logIdentifier)
 
 
 if __name__ == '__main__':
-    socket.setdefaulttimeout(30)
+    socket.setdefaulttimeout(60)
     tmpYear = input('请输入数据所归属的年份:')
-    tmpUsername = input('请输入用于匹配的用户名:')
     MySQL().createTables()
     print('数据库中相应数据表已准备完成...')
-    jobs = []
-    for i in range(4):
-        jobs.append(gevent.spawn(getQPageInfo, tmpYear.strip(), tmpUsername.strip()))
-    gevent.joinall(jobs)
+    threadList = []
+    for i in range(5):
+        tmpThread = threading.Thread(target=getQPageInfo, args=(tmpYear.strip(),))
+        threadList.append(tmpThread)
+    for tmpThread in threadList:
+        tmpThread.start()
+    for tmpThread in threadList:
+        tmpThread.join()

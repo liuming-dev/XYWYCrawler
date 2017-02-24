@@ -8,11 +8,11 @@ from DBUtils.PersistentDB import PersistentDB
 TB_PRIFIX = '20170224___2016_'
 
 # 数据库的配置信息
-DB_HOST = '192.168.139.100'
+DB_HOST = '127.0.0.1'
 DB_PORT = 3306
 DB_NAME = 'xywy'
-DB_USERNAME = 'MyDataBase'
-DB_PASSWORD = 'wla123456'
+DB_USERNAME = 'root'
+DB_PASSWORD = '123456'
 DB_CHARSET = 'utf8'
 TB_Q_INFO = TB_PRIFIX + 'q_info'
 TB_Q_REPLY = TB_PRIFIX + 'q_reply1'
@@ -28,7 +28,7 @@ class Redis(object):
     @staticmethod
     def __getRedis():
         if Redis.__pool is None:
-            Redis.__pool = redis.ConnectionPool(host='192.168.139.32', port=6379, password=123456, db=0)
+            Redis.__pool = redis.ConnectionPool(host='127.0.0.1', port=6379, password=123456, db=0)
         r = redis.StrictRedis(connection_pool=Redis.__pool)
         return r
 
