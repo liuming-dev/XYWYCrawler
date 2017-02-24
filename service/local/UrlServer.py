@@ -18,7 +18,7 @@ class UrlServer(object):
 
     def getUrls(self, username):
         if username == self.__username:
-            return Redis().getUrls(self.tb, 200)
+            return Redis().getUrls(self.__tb, 200)
         return None
 
     def saveUrl(self, username, tb, url):

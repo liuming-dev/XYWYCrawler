@@ -1,11 +1,13 @@
 #! /usr/bin/python
 
+import socket
 import traceback
 from datetime import datetime
 
 import gevent
 from gevent import monkey
 
+from service.remote.UrlClient import UrlClient
 from util.DBHandler import MySQL
 from util.IOHandler import FileIO
 from util.IOHandler import NetworkIO
@@ -14,30 +16,25 @@ monkey.patch_all()
 
 
 def getQPageInfo(year, username):
-    # urlPool = UrlClient.getUrls(username)
-    urlPool = ['http://club.xywy.com/static/3/1234.htm',
-               'http://club.xywy.com/static/20161207/123982687.htm',
-               'http://club.xywy.com/static/20161207/123982709.htm',
-               'http://club.xywy.com/static/20161207/123982714.htm',
-               'http://club.xywy.com/static/20161229/124483009.htm',
-               'http://club.xywy.com/static/20161228/124462978.htm']
+    urlPool = UrlClient.getUrls(username)
     while 1:
         if len(urlPool) > 0:
             for url in urlPool:
-                print(url)
                 try:
                     html = NetworkIO().getHtmlByRequests(url)
                     if html is not None:
                         # 获取问题信息
                         qInfoBlock = html.xpath('//div[@class="w980 clearfix bc f12 btn-a pr"]')
-                        getQInfo(url, qInfoBlock[0])
+                        if len(qInfoBlock) > 0:
+                            getQInfo(url, qInfoBlock[0])
                         # 获取关于问题的回复信息
                         replyInfoBlock = html.xpath('//div[@class="Doc_con clearfix pr mt5 "]')
-                        getReplyInfo(url, replyInfoBlock[0])
+                        if len(replyInfoBlock) > 0:
+                            getReplyInfo(url, replyInfoBlock[0])
                 except:
                     # print('>>>Exception: ' + traceback.format_exc())
                     doExpt(username, year + '-', url, '1')
-                    # urlPool = UrlClient.getUrls(username)
+            urlPool = UrlClient.getUrls(username)
         else:
             break
         break
@@ -105,7 +102,7 @@ def getReplyInfo(url, elem):
             puIndex = block.find('.//div[@class="clearfix pb10  pl20 pr20 ballc"]//b[@class="gratenum"]')
         else:
             puIndex = block.find('.//div[@class="clearfix pb10  pl20 pr20 ballc pr"]//b[@class="gratenum"]')
-        puIndex = getPureText(puIndex.text)
+        puIndex = getPureText(puIndex.text) if puIndex is not None else None
         reply1Id = url + '#' + str(reply1Index)
         reply1Index += 1
         MySQL().saveReply1Info((reply1Id, doctorUrl, reply1Body, reply1Datetime, puIndex, accepted))
@@ -157,17 +154,17 @@ def getPureText(rawText):
 
 
 def doExpt(username, tb, url, logIdentifier):
-    from service.remote import UrlClient
     UrlClient.saveUrl(username, tb, url)
     FileIO.handleExpt(traceback.format_exc(), url, logIdentifier)
 
 
 if __name__ == '__main__':
-    year = input('请输入数据所归属的年份:')
+    socket.setdefaulttimeout(30)
+    tmpYear = input('请输入数据所归属的年份:')
     tmpUsername = input('请输入用于匹配的用户名:')
     MySQL().createTables()
-    print('数据库中相应数据表准备完成...')
+    print('数据库中相应数据表已准备完成...')
     jobs = []
-    for i in range(1):
-        jobs.append(gevent.spawn(getQPageInfo, year.strip(), tmpUsername.strip()))
+    for i in range(4):
+        jobs.append(gevent.spawn(getQPageInfo, tmpYear.strip(), tmpUsername.strip()))
     gevent.joinall(jobs)

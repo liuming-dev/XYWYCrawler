@@ -128,7 +128,7 @@ class QUrlProducer(object):
 
 
 if __name__ == '__main__':
-    socket.setdefaulttimeout(60)
+    socket.setdefaulttimeout(30)
     print('请输入如下初始化参数 -->')
     startPageIndex = input('输入起始抓取页面索引值: ')
     endPageIndex = input('输入结束抓取页面索引值: ')

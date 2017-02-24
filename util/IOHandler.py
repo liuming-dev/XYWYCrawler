@@ -23,7 +23,7 @@ class NetworkIO(object):
         }
 
     def getHtmlByRequests(self, url):
-        resp = requests.get(url, headers=self.__reqHeaders, timeout=60)
+        resp = requests.get(url, headers=self.__reqHeaders, timeout=30)
         if resp.status_code == 200:
             resp.encoding = 'gb2312'
             return etree.HTML(resp.text)
