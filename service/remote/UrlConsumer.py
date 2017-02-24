@@ -17,6 +17,11 @@ monkey.patch_all()
 
 def getQPageInfo(year, username):
     urlPool = UrlClient.getUrls(username)
+    # urlPool=['http://club.xywy.com/static/20170223/126671067.htm',
+    #          'http://club.xywy.com/static/20170223/126671066.htm',
+    #          'http://club.xywy.com/static/20170223/126671065.htm',
+    #          'http://club.xywy.com/static/20170223/126671064.htm',
+    #          'http://club.xywy.com/static/20170223/126671063.htm']
     while 1:
         if len(urlPool) > 0:
             for url in urlPool:
@@ -37,7 +42,6 @@ def getQPageInfo(year, username):
             urlPool = UrlClient.getUrls(username)
         else:
             break
-        break
 
 
 def getQInfo(url, elem):
