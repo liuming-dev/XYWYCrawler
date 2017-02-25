@@ -5,11 +5,16 @@ import threading
 import traceback
 from datetime import datetime
 
+import gevent
+from gevent import monkey
+
 from common.DBHandler import MySQL
 from common.DBHandler import Redis
 from common.IOHandler import FileIO
 from common.IOHandler import NetworkIO
 from rpc.Client import UrlClient
+
+monkey.patch_all()
 
 
 def getQPageInfo(year, password):
@@ -21,7 +26,7 @@ def getQPageInfo(year, password):
         if len(urlPool) > 0:
             for url in urlPool:
                 try:
-                    html = NetworkIO().requestHtml(url)
+                    html = NetworkIO().requestHtml(url, password=password)
                     if html is not None:
                         # 获取问题信息
                         qInfoBlock = html.xpath('//div[@class="w980 clearfix bc f12 btn-a pr"]')
@@ -172,11 +177,15 @@ if __name__ == '__main__':
     tmpYear = input('请输入数据所在队列键名:').strip()
     MySQL().createTables()
     print('数据库中相应数据表已准备完成...')
-    threadList = []
+    # threadList = []
+    # for i in range(5):
+    #     tmpThread = threading.Thread(target=getQPageInfo, args=(tmpYear, None if tmpPwd == '' else tmpPwd))
+    #     threadList.append(tmpThread)
+    # for tmpThread in threadList:
+    #     tmpThread.start()
+    # for tmpThread in threadList:
+    #     tmpThread.join()
+    jobs = []
     for i in range(5):
-        tmpThread = threading.Thread(target=getQPageInfo, args=(tmpYear, None if tmpPwd == '' else tmpPwd))
-        threadList.append(tmpThread)
-    for tmpThread in threadList:
-        tmpThread.start()
-    for tmpThread in threadList:
-        tmpThread.join()
+        jobs.append(gevent.spawn(getQPageInfo, tmpYear, (None if tmpPwd == '' else tmpPwd)))
+    gevent.joinall(jobs)

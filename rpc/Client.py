@@ -6,9 +6,8 @@ from xmlrpc.client import ServerProxy
 class UrlClient(object):
     @staticmethod
     def getUrls(password):
-        with ServerProxy('http://127.0.0.1:10001/', allow_none=True) as proxy:
-            urls = proxy.getUrls(password)
-        return urls
+        with ServerProxy('http://192.168.139.32:10001/', allow_none=True) as proxy:
+            return proxy.getUrls(password)
 
     @staticmethod
     def saveUrl(password, tb, url):
@@ -18,7 +17,7 @@ class UrlClient(object):
     @staticmethod
     def getIP(password):
         with ServerProxy('http://192.168.139.32:10001/', allow_none=True) as proxy:
-            proxy.getIP(password)
+            return proxy.getIP(password)
 
 
 if __name__ == '__main__':
