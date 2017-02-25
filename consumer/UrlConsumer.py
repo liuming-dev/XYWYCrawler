@@ -5,24 +5,23 @@ import threading
 import traceback
 from datetime import datetime
 
-from util.DBHandler import MySQL
-from util.DBHandler import Redis
-from util.IOHandler import FileIO
-from util.IOHandler import NetworkIO
+from common.DBHandler import MySQL
+from common.DBHandler import Redis
+from common.IOHandler import FileIO
+from common.IOHandler import NetworkIO
+from rpc.Client import UrlClient
 
 
-def getQPageInfo(year):
-    urlPool = Redis().getUrls(year, 200)
-    # urlPool=['http://club.xywy.com/static/20170223/126671067.htm',
-    #          'http://club.xywy.com/static/20170223/126671066.htm',
-    #          'http://club.xywy.com/static/20170223/126671065.htm',
-    #          'http://club.xywy.com/static/20170223/126671064.htm',
-    #          'http://club.xywy.com/static/20170223/126671063.htm']
+def getQPageInfo(year, password):
+    if password is not None:
+        urlPool = UrlClient.getUrls(password)  # 与redis不在同一台主机上时
+    else:
+        urlPool = Redis().listUrls(year, 300)  # 与redis在同一台主机上时
     while 1:
         if len(urlPool) > 0:
             for url in urlPool:
                 try:
-                    html = NetworkIO().getHtmlByRequests(url)
+                    html = NetworkIO().requestHtml(url)
                     if html is not None:
                         # 获取问题信息
                         qInfoBlock = html.xpath('//div[@class="w980 clearfix bc f12 btn-a pr"]')
@@ -34,8 +33,13 @@ def getQPageInfo(year):
                             getReplyInfo(url, replyInfoBlock[0])
                 except:
                     # print('>>>Exception: ' + traceback.format_exc())
-                    doExpt(year + '-', url, '1')
-            urlPool = Redis().getUrls(year, 200)
+                    doExpt(password, year, url, '1')
+            if password is not None:
+                # 与redis不在同一台主机上时
+                urlPool = UrlClient.getUrls(password)
+            else:
+                # 与redis在同一台主机上时
+                urlPool = Redis().listUrls(year, 300)
         else:
             break
 
@@ -154,19 +158,23 @@ def getPureText(rawText):
     return rawText
 
 
-def doExpt(tb, url, logIdentifier):
-    Redis().saveUrl(tb, url)
+def doExpt(password, tb, url, logIdentifier):
+    if password is not None:
+        UrlClient.saveUrl(password, tb, url)
+    else:
+        Redis().saveUrl(tb, url)  # 与redis在同一台主机上时
     FileIO.handleExpt(traceback.format_exc(), url, logIdentifier)
 
 
 if __name__ == '__main__':
     socket.setdefaulttimeout(60)
-    tmpYear = input('请输入数据所归属的年份:')
+    tmpPwd = input('请输入用于认证的密码:').strip()
+    tmpYear = input('请输入数据所在队列键名:').strip()
     MySQL().createTables()
     print('数据库中相应数据表已准备完成...')
     threadList = []
     for i in range(5):
-        tmpThread = threading.Thread(target=getQPageInfo, args=(tmpYear.strip(),))
+        tmpThread = threading.Thread(target=getQPageInfo, args=(tmpYear, None if tmpPwd == '' else tmpPwd))
         threadList.append(tmpThread)
     for tmpThread in threadList:
         tmpThread.start()

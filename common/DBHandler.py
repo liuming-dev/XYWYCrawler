@@ -5,14 +5,14 @@ import redis
 from DBUtils.PersistentDB import PersistentDB
 
 # 设定数据库表的特定前缀和后缀
-TB_PRIFIX = '20170224___2016_'
+TB_PRIFIX = '20170225___2016_'
 
 # 数据库的配置信息
-DB_HOST = '127.0.0.1'
+DB_HOST = '192.168.139.100'
 DB_PORT = 3306
 DB_NAME = 'xywy'
-DB_USERNAME = 'root'
-DB_PASSWORD = '123456'
+DB_USERNAME = 'MyDataBase'
+DB_PASSWORD = 'wla123456'
 DB_CHARSET = 'utf8'
 TB_Q_INFO = TB_PRIFIX + 'q_info'
 TB_Q_REPLY = TB_PRIFIX + 'q_reply1'
@@ -28,42 +28,50 @@ class Redis(object):
     @staticmethod
     def __getRedis():
         if Redis.__pool is None:
-            Redis.__pool = redis.ConnectionPool(host='127.0.0.1', port=6379, password=123456, db=0)
+            Redis.__pool = redis.ConnectionPool(host='127.0.0.1', port=6379, password='9f37174731055084', db=0)
         r = redis.StrictRedis(connection_pool=Redis.__pool)
         return r
 
-    def saveUrl(self, tb, url):
-        self.__pipe.lpush(tb, url).execute()
-
-    def saveUrls(self, tb, urls):
-        for url in urls:
-            self.saveUrl(tb, url)
+    def saveUrl(self, key, *url, backup=False):
+        if backup:
+            self.__pipe.lpush(key, *url).lpush(key + '+', *url).execute()
+        else:
+            self.__pipe.lpush(key, *url).execute()
 
     # 获取list类型的对象中保存的元素
-    def getUrl(self, tb, restore=True):
-        result = self.__pipe.rpop(tb).execute()
+    def getUrl(self, key, backup=True):
+        result = self.__pipe.rpop(key).execute()
         if result[0] is not None:
             tmp = result[0].decode('utf-8')
-            if restore:
-                self.__pipe.lpush((tb.replace('+', '') if '+' in tb else tb + '+'), tmp).execute()
+            if backup:
+                self.__pipe.lpush((key.replace('+', '') if '+' in key else key + '+'), tmp).execute()
             return tmp
         return None
 
-    def getUrls(self, tb, count=100, restore=True):
+    def listUrls(self, key, count=100, backup=True):
         tmp = []
         if count == -1:
             while 1:
-                result = self.getUrl(tb, restore)
+                result = self.getUrl(key, backup)
                 if result is None:
                     break
                 tmp.append(result)
         else:
             for i in range(count):
-                result = self.getUrl(tb, restore)
+                result = self.getUrl(key, backup)
                 if result is None:
                     break
                 tmp.append(result)
         return tmp
+
+    def saveIPs(self, key, *ips):
+        self.__pipe.delete(key).sadd(key, *ips).execute()
+
+    def getRandIP(self, key):
+        ip = self.__pipe.srandmember(key).execute()[0]
+        if ip is not None:
+            ip = ip.decode('utf-8')
+        return ip
 
 
 class MySQL(object):
@@ -71,7 +79,7 @@ class MySQL(object):
         self.__conn = ConnPoolMgr().connection()
 
     def createTables(self):
-        with open('../../DDL.sql', 'r', encoding='utf-8') as file:
+        with open('../resource/DDL.sql', 'r', encoding='utf-8') as file:
             ddl = file.read()
         ddl = ddl.replace('q_info', TB_Q_INFO).replace('q_reply1', TB_Q_REPLY).replace('q_reply2', TB_Q_REPLY_2)
         print(ddl)

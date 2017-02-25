@@ -5,15 +5,20 @@ from xmlrpc.client import ServerProxy
 
 class UrlClient(object):
     @staticmethod
-    def getUrls(username):
+    def getUrls(password):
         with ServerProxy('http://127.0.0.1:10001/', allow_none=True) as proxy:
-            urls = proxy.getUrls(username)
+            urls = proxy.getUrls(password)
         return urls
 
     @staticmethod
-    def saveUrl(username, tb, url):
+    def saveUrl(password, tb, url):
         with ServerProxy('http://192.168.139.32:10001/', allow_none=True) as proxy:
-            proxy.saveUrl(username, tb, url)
+            proxy.saveUrl(password, tb, url)
+
+    @staticmethod
+    def getIP(password):
+        with ServerProxy('http://192.168.139.32:10001/', allow_none=True) as proxy:
+            proxy.getIP(password)
 
 
 if __name__ == '__main__':

@@ -6,9 +6,9 @@ import traceback
 import gevent
 from gevent import monkey
 
-from util.DBHandler import Redis
-from util.IOHandler import FileIO
-from util.IOHandler import NetworkIO
+from common.DBHandler import Redis
+from common.IOHandler import FileIO
+from common.IOHandler import NetworkIO
 
 monkey.patch_all()
 
@@ -35,22 +35,22 @@ class QUrlProducer(object):
         self.__getDayUrl()
         print('需要抓取数据所属年份为：' + str(self.__years))
         for year in self.__years:
-            pageUrlTask = Redis().getUrls('-' + year, -1, restore=False)
+            pageUrlTask = Redis().listUrls('-' + year, -1, backup=False)
             while 1:
                 if len(pageUrlTask) > 0:
-                    # 全部任务分为8个小任务
+                    # 全部任务分为5个小任务
                     allTask = {}
-                    for i in range(8):
+                    for i in range(5):
                         allTask[i] = []
                     for index, url in enumerate(pageUrlTask):
-                        allTask[index % 8].append(url)
-                    # 创建8个协程
+                        allTask[index % 5].append(url)
+                    # 创建5个协程
                     jobs = []
-                    for i in range(8):
+                    for i in range(5):
                         jobs.append(gevent.spawn(QUrlProducer.__getAllQUrl, allTask[i], year))
                     gevent.joinall(jobs)
 
-                    pageUrlTask = Redis().getUrls('-' + year, -1, restore=False)
+                    pageUrlTask = Redis().listUrls('-' + year, -1, backup=False)
                 else:
                     break
             print(year + '的问题url获取工作已经结束...')
@@ -59,7 +59,7 @@ class QUrlProducer(object):
         urlPrefix = 'http://club.xywy.com/keshi/'
         for pageIndex in range(self.__startPage, self.__endPage + 1):
             tmpUrl = urlPrefix + str(pageIndex) + '.html'
-            html = NetworkIO().getHtmlByRequests(tmpUrl)
+            html = NetworkIO().requestHtml(tmpUrl)
             if html is not None:
                 dayLinkBlock = html.xpath('//ul[@class="club_Date clearfix"]//a')
                 for dayLink in dayLinkBlock:
@@ -79,19 +79,19 @@ class QUrlProducer(object):
             try:
                 date = url[27:37]  # 用户构造问题url
                 pageBase = int(url[38:-5])
-                html = NetworkIO().getHtmlByRequests(url)
+                html = NetworkIO().requestHtml(url)
                 if html is not None:
                     pageCount = QUrlProducer.__getDayPageCount(html)
                     qUrls = QUrlProducer.__getPageQUrl(html)
-                    Redis().saveUrls(year, qUrls)
+                    Redis().saveUrl(year, *qUrls, backup=True)
 
                     if pageCount > pageBase:
                         for pageIndex in range(pageBase + 1, pageCount + 1):
                             url = 'http://club.xywy.com/keshi/' + date + '/' + str(pageIndex) + '.html'
-                            html = NetworkIO().getHtmlByRequests(url)
+                            html = NetworkIO().requestHtml(url)
                             if html is not None:
                                 qUrls = QUrlProducer.__getPageQUrl(html)
-                                Redis().saveUrls(year, qUrls)
+                                Redis().saveUrl(year, *qUrls, backup=True)
             except:
                 # print('>>>Exception: ' + traceback.format_exc())
                 QUrlProducer.__doExpt('-' + year, url, '0')
@@ -128,7 +128,7 @@ class QUrlProducer(object):
 
 
 if __name__ == '__main__':
-    socket.setdefaulttimeout(30)
+    socket.setdefaulttimeout(60)
     print('请输入如下初始化参数 -->')
     startPageIndex = input('输入起始抓取页面索引值: ')
     endPageIndex = input('输入结束抓取页面索引值: ')
