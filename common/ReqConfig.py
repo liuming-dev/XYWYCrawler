@@ -69,6 +69,9 @@ class Proxy(object):
 
 if __name__ == '__main__':
     print('IP池刷新程序已经启动...')
+    times = 1
     while 1:
         Proxy.refreshIPPool()
-        time.sleep(5 * 60)  # 每五分钟刷新一次
+        print('第' + str(times) + '次刷新...')
+        times += 1
+        time.sleep(2 * 60)  # 指定刷新间隔
