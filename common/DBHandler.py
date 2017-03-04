@@ -39,16 +39,16 @@ class Redis(object):
             self.__pipe.lpush(key, *url).execute()
 
     # 获取list类型的对象中保存的元素
-    def getUrl(self, key, backup=True):
+    def getUrl(self, key, backup=False):
         result = self.__pipe.rpop(key).execute()
         if result[0] is not None:
             tmp = result[0].decode('utf-8')
-            if backup:
+            if not backup:
                 self.__pipe.lpush((key.replace('+', '') if '+' in key else key + '+'), tmp).execute()
             return tmp
         return None
 
-    def listUrls(self, key, count=100, backup=True):
+    def listUrls(self, key, count=100, backup=False):
         tmp = []
         if count == -1:
             while 1:
@@ -64,6 +64,10 @@ class Redis(object):
                 tmp.append(result)
         return tmp
 
+    '''
+    下面的两个方法用于构建代理池使用，但是实际使用效果不好，不再使用
+    不好的原因可能在于：免费的代理网络拥塞比较严重，已发生丢包情况
+    '''
     def saveIPs(self, key, *ips):
         self.__pipe.delete(key).sadd(key, *ips).execute()
 
