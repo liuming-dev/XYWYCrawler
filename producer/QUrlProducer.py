@@ -35,7 +35,7 @@ class QUrlProducer(object):
         self.__getDayUrl()
         print('需要抓取数据所属年份为：' + str(self.__years))
         for year in self.__years:
-            pageUrlTask = Redis().listUrls('-' + year, -1, backup=False)
+            pageUrlTask = Redis().listUrls('-' + year, -1)
             while 1:
                 if len(pageUrlTask) > 0:
                     # 全部任务分为5个小任务
@@ -50,7 +50,7 @@ class QUrlProducer(object):
                         jobs.append(gevent.spawn(QUrlProducer.__getAllQUrl, allTask[i], year))
                     gevent.joinall(jobs)
 
-                    pageUrlTask = Redis().listUrls('-' + year, -1, backup=False)
+                    pageUrlTask = Redis().listUrls('-' + year, -1)
                 else:
                     break
             print(year + '的问题url获取工作已经结束...')
@@ -128,7 +128,6 @@ class QUrlProducer(object):
 
 
 if __name__ == '__main__':
-    socket.setdefaulttimeout(60)
     print('请输入如下初始化参数 -->')
     startPageIndex = input('输入起始抓取页面索引值: ')
     endPageIndex = input('输入结束抓取页面索引值: ')

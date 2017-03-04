@@ -40,6 +40,13 @@ def getUserAgent():
 
 
 class Proxy(object):
+    '''
+    该类用于构建代理池使用
+
+    但是实际使用效果不好，不再使用
+    不好的原因可能在于：免费的代理网络拥塞比较严重，已发生丢包情况
+    '''
+
     @staticmethod
     def getIP():
         return Redis().getRandIP('proxy')
@@ -69,9 +76,9 @@ class Proxy(object):
 
 if __name__ == '__main__':
     print('IP池刷新程序已经启动...')
-    times = 1
+    tmptimes = 1
     while 1:
         Proxy.refreshIPPool()
-        print('第' + str(times) + '次刷新...')
-        times += 1
+        print('第' + str(tmptimes) + '次刷新...')
+        tmptimes += 1
         time.sleep(2 * 60)  # 指定刷新间隔

@@ -26,7 +26,7 @@ def getQPageInfo(year, password):
         if len(urlPool) > 0:
             for url in urlPool:
                 try:
-                    html = NetworkIO().requestHtml(url, password=password)
+                    html = NetworkIO().requestHtml(url)
                     if html is not None:
                         # 获取问题信息
                         qInfoBlock = html.xpath('//div[@class="w980 clearfix bc f12 btn-a pr"]')
@@ -172,7 +172,6 @@ def doExpt(password, tb, url, logIdentifier):
 
 
 if __name__ == '__main__':
-    socket.setdefaulttimeout(60)
     tmpPwd = input('请输入用于认证的密码:').strip()
     tmpYear = input('请输入数据所在队列键名:').strip()
     MySQL().createTables()

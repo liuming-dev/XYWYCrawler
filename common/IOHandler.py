@@ -6,8 +6,6 @@ import requests
 from lxml import etree
 
 from common import ReqConfig
-from common.ReqConfig import Proxy
-from rpc.Client import UrlClient
 
 
 class NetworkIO(object):
@@ -17,24 +15,12 @@ class NetworkIO(object):
             'User-Agent': ReqConfig.getUserAgent()
         }
 
-    def requestHtml(self, url, encoding='gb2312', password=None, retrytimes=3):
-        times = 0
+    def requestHtml(self, url, encoding='gb2312'):
         result = None
-        while times < retrytimes:
-            if password is not None:
-                # 与redis不在同一台主机上时
-                proxy = UrlClient.getIP(password)
-            else:
-                # 与redis在同一台主机上时
-                proxy = Proxy.getIP()
-            proxy = {'http': proxy} if proxy is not None else None
-            resp = requests.get(url, headers=self.__headers, proxies=proxy, timeout=30)
-            if resp.status_code == 200:
-                resp.encoding = encoding
-                result = etree.HTML(resp.text)
-            if result is not None:
-                break
-            times += 1
+        resp = requests.get(url, headers=self.__headers, timeout=(10, 30))
+        if resp.status_code == 200:
+            resp.encoding = encoding
+            result = etree.HTML(resp.text)
         return result
 
 
