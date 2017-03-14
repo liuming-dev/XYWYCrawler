@@ -5,7 +5,7 @@ import redis
 from DBUtils.PersistentDB import PersistentDB
 
 # 设定数据库表的特定前缀和后缀
-TB_PRIFIX = '20170225___2016_'
+TB_PRIFIX = '20170226___2016_'
 
 # 数据库的配置信息
 DB_HOST = '192.168.139.100'
