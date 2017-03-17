@@ -5,7 +5,7 @@ import redis
 from DBUtils.PersistentDB import PersistentDB
 
 # 设定数据库表的特定前缀和后缀
-TB_PRIFIX = '20170225___2016_'
+TB_PRIFIX = '20170226___2016_'
 
 # 数据库的配置信息
 DB_HOST = '192.168.139.100'
@@ -68,6 +68,7 @@ class Redis(object):
     下面的两个方法用于构建代理池使用，但是实际使用效果不好，不再使用
     不好的原因可能在于：免费的代理网络拥塞比较严重，已发生丢包情况
     '''
+
     def saveIPs(self, key, *ips):
         self.__pipe.delete(key).sadd(key, *ips).execute()
 
@@ -83,7 +84,7 @@ class MySQL(object):
         self.__conn = ConnPoolMgr().connection()
 
     def createTables(self):
-        with open('../resource/DDL.sql', 'r', encoding='utf-8') as file:
+        with open('../resource/DDL4Q.sql', 'r', encoding='utf-8') as file:
             ddl = file.read()
         ddl = ddl.replace('q_info', TB_Q_INFO).replace('q_reply1', TB_Q_REPLY).replace('q_reply2', TB_Q_REPLY_2)
         print(ddl)
@@ -100,6 +101,23 @@ class MySQL(object):
     def saveReply2Info(self, reply2Info):
         sql = "INSERT IGNORE INTO " + TB_PRIFIX + "q_reply2() VALUES(%s,%s,%s,%s);"
         self.__conn.cursor().execute(sql, reply2Info)
+
+    # another task
+    def saveDoctorInfo(self, info):
+        sql = "INSERT IGNORE INTO f_all_doctor_info() VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s);"
+        self.__conn.cursor().execute(sql, info)
+
+    def saveDoctorEvaluation(self, info):
+        sql = "INSERT IGNORE INTO f_evaluation_4_doctor() VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s);"
+        self.__conn.cursor().execute(sql, info)
+
+    def saveDoctorEvaluationText(self, info):
+        sql = "INSERT IGNORE INTO f_evaluation_text_4_doctor() VALUES(%s,%s,%s,%s,%s,%s);"
+        self.__conn.cursor().execute(sql, info)
+
+    def saveServiceInfo(self, info):
+        sql = "INSERT IGNORE INTO f_service_info() VALUES(%s,%s,%s,%s,%s,%s,%s);"
+        self.__conn.cursor().execute(sql, info)
 
 
 class ConnPoolMgr(object):
